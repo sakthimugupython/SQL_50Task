@@ -1,54 +1,82 @@
-CREATE DATABASE course_feedback;
-USE course_feedback;
+CREATE DATABASE job_scheduler;
+USE job_scheduler;
 
-CREATE TABLE courses (
+-- Table: Jobs
+CREATE TABLE jobs (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    title VARCHAR(200)
+    name VARCHAR(100),
+    frequency VARCHAR(20) -- e.g., 'daily', 'hourly', 'weekly'
 );
 
-CREATE TABLE users (
+-- Table: Job Logs
+CREATE TABLE job_logs (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(100)
+    job_id INT,
+    run_time DATETIME,
+    status ENUM('SUCCESS', 'FAILED', 'SKIPPED'),
+    FOREIGN KEY (job_id) REFERENCES jobs(id)
 );
 
-CREATE TABLE feedback (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    course_id INT,
-    user_id INT,
-    rating DECIMAL(2,1), -- scale of 1.0 to 5.0
-    comments TEXT,
-    FOREIGN KEY (course_id) REFERENCES courses(id),
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
+-- Sample Jobs (10 entries)
+INSERT INTO jobs (name, frequency) VALUES
+('Backup DB', 'daily'),
+('Sync Analytics', 'hourly'),
+('Clear Temp Files', 'daily'),
+('Process Emails', 'hourly'),
+('Generate Reports', 'weekly'),
+('Sync Inventory', 'daily'),
+('Send Reminders', 'hourly'),
+('Update Dashboard', 'hourly'),
+('Refresh Cache', 'daily'),
+('Clean Old Logs', 'weekly');
 
--- Sample courses
-INSERT INTO courses (title) VALUES
-('SQL Fundamentals'), ('Data Visualization'), ('Web Development');
+-- Sample Job Logs (10+ entries)
+INSERT INTO job_logs (job_id, run_time, status) VALUES
+(1, '2025-07-14 01:00', 'SUCCESS'),
+(2, '2025-07-14 02:00', 'FAILED'),
+(3, '2025-07-14 03:00', 'SUCCESS'),
+(4, '2025-07-14 04:00', 'SUCCESS'),
+(5, '2025-07-14 05:00', 'SKIPPED'),
+(6, '2025-07-14 06:00', 'SUCCESS'),
+(7, '2025-07-14 07:00', 'FAILED'),
+(8, '2025-07-14 08:00', 'SUCCESS'),
+(9, '2025-07-14 09:00', 'SKIPPED'),
+(10, '2025-07-14 10:00', 'SUCCESS'),
+(1, '2025-07-15 01:00', 'SUCCESS'),
+(2, '2025-07-15 02:00', 'SUCCESS'),
+(5, '2025-07-15 05:00', 'SUCCESS');
 
--- Sample users
-INSERT INTO users (name) VALUES
-('Alice'), ('Bob'), ('Charlie'), ('David'), ('Eva'),
-('Frank'), ('Grace'), ('Helen'), ('Ivan'), ('Julia');
-
--- Sample feedback (10 entries)
-INSERT INTO feedback (course_id, user_id, rating, comments) VALUES
-(1, 1, 4.5, 'Great intro to SQL'),
-(1, 2, 4.0, 'Helpful exercises'),
-(1, 3, 3.8, 'Well structured'),
-(2, 4, 5.0, 'Loved the visual tools'),
-(2, 5, 4.2, 'Clear explanations'),
-(2, 6, 4.7, 'Very engaging'),
-(3, 7, 3.9, 'Good for beginners'),
-(3, 8, 4.1, 'Practical content'),
-(3, 9, 4.4, 'Covered latest trends'),
-(1, 10, 4.6, 'Easy to follow');
-
--- Query: Average rating per course
+-- Query: Last run per job
 SELECT 
-    c.title AS course,
-    ROUND(AVG(f.rating), 2) AS avg_rating,
-    COUNT(f.id) AS total_feedbacks
-FROM feedback f
-JOIN courses c ON f.course_id = c.id
-GROUP BY c.title
-ORDER BY avg_rating DESC;
+    j.name AS job_name,
+    MAX(l.run_time) AS last_run
+FROM job_logs l
+JOIN jobs j ON l.job_id = j.id
+GROUP BY j.name
+ORDER BY last_run DESC;
+
+-- Query: Status count per job
+SELECT 
+    j.name AS job_name,
+    l.status,
+    COUNT(*) AS status_count
+FROM job_logs l
+JOIN jobs j ON l.job_id = j.id
+GROUP BY j.name, l.status
+ORDER BY j.name, l.status;
+
+-- Optional: Next run calculation for daily jobs
+-- You can simulate next run using last run + interval
+SELECT 
+    j.name,
+    j.frequency,
+    MAX(l.run_time) AS last_run,
+    CASE 
+        WHEN j.frequency = 'daily' THEN DATE_ADD(MAX(l.run_time), INTERVAL 1 DAY)
+        WHEN j.frequency = 'hourly' THEN DATE_ADD(MAX(l.run_time), INTERVAL 1 HOUR)
+        WHEN j.frequency = 'weekly' THEN DATE_ADD(MAX(l.run_time), INTERVAL 1 WEEK)
+        ELSE NULL
+    END AS next_run
+FROM job_logs l
+JOIN jobs j ON l.job_id = j.id
+GROUP BY j.id, j.name, j.frequency;
